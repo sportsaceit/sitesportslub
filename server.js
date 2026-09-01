@@ -14,13 +14,14 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Serve static frontend files (HTML, CSS, JS, Images)
 app.use(express.static(__dirname));
 
-// Data Directory and DB File Path
-const DATA_DIR = path.join(__dirname, 'data');
+// Data Directory and DB File Path (/tmp for Vercel serverless, ./data for local)
+const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+const DATA_DIR = isVercel ? '/tmp' : path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
-// Ensure data directory and database file exist
+// Ensure data directory exists locally
 if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) { }
 }
 
 const initialDatabase = {
@@ -68,8 +69,10 @@ function readDB() {
   } catch (err) {
     console.error('Error reading database file:', err);
   }
-  // Save initial database if file doesn't exist or error occurs
-  writeDB(initialDatabase);
+  // Try writing initial database if not existing
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(initialDatabase, null, 2), 'utf8');
+  } catch (e) { }
   return initialDatabase;
 }
 
