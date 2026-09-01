@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to = "/aceit-spikers-1.html"
+  status = 200
