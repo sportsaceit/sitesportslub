@@ -334,10 +334,15 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'aceit-spikers-1.html'));
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🚀 ACEIT Sports Club Server is running live!`);
-  console.log(`📍 Local URL: http://localhost:${PORT}`);
-  console.log(`=======================================================`);
-});
+// Export Express app for Vercel Serverless functions
+module.exports = app;
+
+// Start Server locally if not running on Vercel
+if (!isVercel) {
+  app.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 ACEIT Sports Club Server is running live!`);
+    console.log(`📍 Local URL: http://localhost:${PORT}`);
+    console.log(`=======================================================`);
+  });
+}
