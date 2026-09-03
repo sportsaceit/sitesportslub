@@ -7789,6 +7789,7 @@
         return 'https://instagram.com/' + v.replace(/^@/, '');
       }
       var currentTeamFilter = 'all';
+      var currentTeamSearch = '';
 
       function renderTeamFilters() {
         var container = document.getElementById('teamFilters');
@@ -7801,7 +7802,41 @@
           currentTeamFilter = 'all';
         }
 
-        container.innerHTML = '';
+        var btnContainer = container.querySelector('.filter-btn-group');
+        if (!btnContainer) {
+          container.innerHTML = '';
+
+          var searchInput = document.createElement('input');
+          searchInput.type = 'text';
+          searchInput.id = 'teamRosterSearchInput';
+          searchInput.placeholder = '🔍 Search player name, position, jersey #...';
+          searchInput.value = currentTeamSearch;
+          searchInput.style.padding = '8px 14px';
+          searchInput.style.borderRadius = '20px';
+          searchInput.style.border = '1.5px solid var(--border)';
+          searchInput.style.background = 'var(--bg-card)';
+          searchInput.style.color = 'var(--charcoal)';
+          searchInput.style.fontSize = '13px';
+          searchInput.style.fontWeight = '600';
+          searchInput.style.outline = 'none';
+          searchInput.style.marginBottom = '10px';
+          searchInput.style.width = '100%';
+          searchInput.style.maxWidth = '360px';
+          searchInput.addEventListener('input', function (e) {
+            currentTeamSearch = (e.target.value || '').trim().toLowerCase();
+            renderTeamPublic(true);
+          });
+          container.appendChild(searchInput);
+
+          btnContainer = document.createElement('div');
+          btnContainer.className = 'filter-btn-group';
+          btnContainer.style.display = 'flex';
+          btnContainer.style.gap = '8px';
+          btnContainer.style.flexWrap = 'wrap';
+          container.appendChild(btnContainer);
+        } else {
+          btnContainer.innerHTML = '';
+        }
 
         allCats.forEach(function (catKey) {
           var btn = document.createElement('button');
@@ -7821,19 +7856,25 @@
             renderTrainingPublic();
             renderTeamPublic();
           });
-          container.appendChild(btn);
+          btnContainer.appendChild(btn);
         });
       }
 
-      function renderTeamPublic() {
-        renderTeamFilters();
+      function renderTeamPublic(skipFilters) {
+        if (!skipFilters) renderTeamFilters();
         if (!teamGrid) return;
-        teamGrid.innerHTML = '';
-        var players = (DB.team || []).filter(function (p) {
+        teamGrid.innerHTML = '';var players = (DB.team || []).filter(function (p) {
           var pCats = getCategories(p);
           if (!pCats.length) pCats = ['boys team'];
           var filter = (currentTeamFilter || 'all').trim().toLowerCase();
-          return filter === 'all' || pCats.indexOf(filter) !== -1;
+          var passCat = filter === 'all' || pCats.indexOf(filter) !== -1;
+          if (!passCat) return false;
+          if (currentTeamSearch) {
+            var jNum = String(p.num !== undefined && p.num !== null ? p.num : (p.no !== undefined && p.no !== null ? p.no : (p.jerseyNo || '')));
+            var corpus = (String(p.n || '') + ' ' + String(p.pos || p.r || '') + ' ' + jNum + ' ' + String(p.exp || '')).toLowerCase();
+            if (corpus.indexOf(currentTeamSearch) === -1) return false;
+          }
+          return true;
         });
 
         if (players.length === 0) {
@@ -11294,7 +11335,7 @@
           clubOptionsHtml += '<option value="' + s + '">' + esc(c.name) + ' (' + cnt + ')</option>';
         });
 
-        var html = '<div class="admin-panel-head"><h3>Club Applications <span class="admin-count mono" id="appTotalCountBadge">' + filteredApps.length + '</span></h3></div>' +
+        var html = '<div class="admin-panel-head" style="display:flex;justify-content:space-between;align-items:center;"><h3>Club Applications <span class="admin-count mono" id="appTotalCountBadge">' + filteredApps.length + '</span></h3><button class="btn btn-outline" id="exportAppsCsvBtn" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">📥 Export Applications (.csv)</button></div>' +
           '<div class="admin-note">View, manage, sort, and process player applications submitted via Tally or the website join form. Filter dynamically by target sports club or application status.</div>';
 
         // Filter and Sort Toolbar
@@ -11494,6 +11535,41 @@
         document.getElementById('appStatusFilterSelect').addEventListener('change', renderRows);
         document.getElementById('appSortSelect').addEventListener('change', renderRows);
         document.getElementById('appSearchInput').addEventListener('input', renderRows);
+        var exportCsvBtn = document.getElementById('exportAppsCsvBtn');
+        if (exportCsvBtn) {
+          exportCsvBtn.addEventListener('click', function () {
+            if (!allApps || !allApps.length) {
+              showAlert('No application records available to export.');
+              return;
+            }
+            var headers = ['Application ID', 'Name', 'Email', 'Phone', 'Club', 'Position', 'Experience', 'Status', 'Date'];
+            var rows = allApps.map(function (a) {
+              var q = String.fromCharCode(34);
+              var escQ = function (v) { return q + String(v || '').split(q).join(q + q) + q; };
+              return [
+                escQ(a._id || a.id),
+                escQ(a.name),
+                escQ(a.email),
+                escQ(a.phone),
+                escQ(getClubName(a.clubSlug || a.clubId)),
+                escQ(a.position),
+                escQ(a.experience),
+                escQ(a.status || 'Pending'),
+                escQ(a.createdAt || a.date)
+              ].join(',');
+            });
+            var csvText = [headers.join(',')].concat(rows).join('\n');
+            var blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'aceit_club_applications_' + new Date().toISOString().slice(0, 10) + '.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          });
+        }
 
         renderRows();
       }
